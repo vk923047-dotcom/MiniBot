@@ -1,25 +1,16 @@
 
+
 import streamlit as st
 from google import genai
 from PIL import Image
 import tempfile
 import os
 
-
-# ============================================================
-# MINI BOT SETTINGS
-# ============================================================
-
 st.set_page_config(
     page_title="MiniBot",
     page_icon="🤖",
     layout="centered"
 )
-
-
-# ============================================================
-# GEMINI CLIENT
-# ============================================================
 
 try:
     client = genai.Client(
@@ -30,11 +21,6 @@ except Exception:
         "MiniBot is not connected to its AI service yet."
     )
     st.stop()
-
-
-# ============================================================
-# MINI BOT HEADER
-# ============================================================
 
 st.title("🤖 MiniBot")
 
@@ -47,51 +33,55 @@ st.write(
     "Ask me anything and I'll do my best to help you."
 )
 
-
-# ============================================================
-# CHAT MEMORY
-# ============================================================
+# -----------------------------
+# Chat memory
+# -----------------------------
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# -----------------------------
+# Message limit
+# -----------------------------
 
-# ============================================================
-# DISPLAY PREVIOUS MESSAGES
-# ============================================================
+MAX_MESSAGES = 20
+
+if "message_count" not in st.session_state:
+    st.session_state.message_count = 0
+
+# -----------------------------
+# Display previous messages
+# -----------------------------
 
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-        st.markdown(
-            message["content"]
-        )
-
-
-# ============================================================
-# SIDEBAR
-# ============================================================
+# -----------------------------
+# Sidebar
+# -----------------------------
 
 with st.sidebar:
 
     st.header("⚙️ MiniBot")
 
+    st.write(
+        f"💬 Messages used: "
+        f"{st.session_state.message_count}/{MAX_MESSAGES}"
+    )
+
     if st.button(
         "🗑️ Clear Chat",
         use_container_width=True
     ):
-
         st.session_state.messages = []
-
+        st.session_state.message_count = 0
         st.rerun()
-
 
     st.divider()
 
-    st.write(
-        "MiniBot can:"
-    )
+    st.write("MiniBot can:")
 
     st.write("💬 Answer questions")
     st.write("🧠 Help you learn")
@@ -99,10 +89,9 @@ with st.sidebar:
     st.write("📄 Read PDFs")
     st.write("💡 Brainstorm ideas")
 
-
-# ============================================================
-# FILE UPLOAD
-# ============================================================
+# -----------------------------
+# File upload
+# -----------------------------
 
 uploaded_file = st.file_uploader(
     "📎 Upload an image or PDF",
@@ -115,20 +104,11 @@ uploaded_file = st.file_uploader(
     ]
 )
 
-
-# ============================================================
-# SHOW UPLOADED IMAGE
-# ============================================================
-
 if uploaded_file is not None:
 
-    if uploaded_file.type.startswith(
-        "image/"
-    ):
+    if uploaded_file.type.startswith("image/"):
 
-        image = Image.open(
-            uploaded_file
-        )
+        image = Image.open(uploaded_file)
 
         st.image(
             image,
@@ -136,22 +116,35 @@ if uploaded_file is not None:
             use_container_width=True
         )
 
-
-# ============================================================
-# CHAT FUNCTION
-# ============================================================
+# -----------------------------
+# Chat input
+# -----------------------------
 
 user_message = st.chat_input(
     "💬 Type your message..."
 )
 
-
 if user_message:
 
-    # --------------------------------------------------------
-    # SAVE USER MESSAGE
-    # --------------------------------------------------------
+    # Check message limit
+    if st.session_state.message_count >= MAX_MESSAGES:
 
+        st.warning(
+            "🛑 You have reached the 20-message "
+            "free limit for this session."
+        )
+
+        st.info(
+            "💎 More messages can be available "
+            "in a future premium version."
+        )
+
+        st.stop()
+
+    # Count this message
+    st.session_state.message_count += 1
+
+    # Save user message
     st.session_state.messages.append(
         {
             "role": "user",
@@ -159,21 +152,12 @@ if user_message:
         }
     )
 
-
-    # --------------------------------------------------------
-    # DISPLAY USER MESSAGE
-    # --------------------------------------------------------
-
     with st.chat_message("user"):
+        st.markdown(user_message)
 
-        st.markdown(
-            user_message
-        )
-
-
-    # --------------------------------------------------------
-    # BUILD CONVERSATION
-    # --------------------------------------------------------
+    # -----------------------------
+    # Build conversation
+    # -----------------------------
 
     conversation = """
 You are MiniBot, a friendly and helpful personal AI assistant.
@@ -193,14 +177,11 @@ Rules:
 5. Remember the current conversation.
 6. Never make up information.
 7. If you are unsure, clearly say so.
-
 """
-
 
     for message in st.session_state.messages:
 
         role = message["role"]
-
         content = message["content"]
 
         if role == "user":
@@ -215,43 +196,27 @@ Rules:
                 f"MiniBot: {content}\n"
             )
 
-
-    conversation += (
-        "MiniBot:"
-    )
-
-
-    # --------------------------------------------------------
-    # PREPARE GEMINI CONTENT
-    # --------------------------------------------------------
+    conversation += "MiniBot:"
 
     contents = [
         conversation
     ]
 
-
-    # --------------------------------------------------------
-    # HANDLE IMAGE
-    # --------------------------------------------------------
+    # -----------------------------
+    # Image
+    # -----------------------------
 
     if uploaded_file is not None:
 
-        if uploaded_file.type.startswith(
-            "image/"
-        ):
+        if uploaded_file.type.startswith("image/"):
 
-            image = Image.open(
-                uploaded_file
-            )
+            image = Image.open(uploaded_file)
 
-            contents.append(
-                image
-            )
+            contents.append(image)
 
-
-    # --------------------------------------------------------
-    # HANDLE PDF
-    # --------------------------------------------------------
+    # -----------------------------
+    # PDF
+    # -----------------------------
 
     if uploaded_file is not None:
 
@@ -268,16 +233,13 @@ Rules:
 
             temp_pdf.close()
 
-
             try:
 
                 pdf_file = client.files.upload(
                     file=temp_pdf.name
                 )
 
-                contents.append(
-                    pdf_file
-                )
+                contents.append(pdf_file)
 
             finally:
 
@@ -289,10 +251,9 @@ Rules:
                         temp_pdf.name
                     )
 
-
-    # --------------------------------------------------------
-    # ASK GEMINI
-    # --------------------------------------------------------
+    # -----------------------------
+    # Generate answer
+    # -----------------------------
 
     with st.chat_message("assistant"):
 
@@ -303,15 +264,11 @@ Rules:
             try:
 
                 response = client.models.generate_content(
-
                     model="gemini-3.5-flash-lite",
-
                     contents=contents
                 )
 
-
                 answer = response.text
-
 
             except Exception as e:
 
@@ -320,15 +277,11 @@ Rules:
                     f"{e}"
                 )
 
+        st.markdown(answer)
 
-        st.markdown(
-            answer
-        )
-
-
-    # --------------------------------------------------------
-    # SAVE MINI BOT RESPONSE
-    # --------------------------------------------------------
+    # -----------------------------
+    # Save assistant answer
+    # -----------------------------
 
     st.session_state.messages.append(
         {
