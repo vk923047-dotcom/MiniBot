@@ -159,7 +159,7 @@ if user_message:
     # Build conversation
     # -----------------------------
 
-  conversation = """
+    conversation = """
 You are MiniBot, a friendly and helpful Student AI Assistant.
 
 Your main purpose is to help students learn and understand subjects.
