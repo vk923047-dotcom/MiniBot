@@ -211,6 +211,13 @@ Rules:
 8. If you are unsure, clearly say so.
 9. For calculations, show the important steps.
 10. Encourage the student to understand the topic rather than simply copy an answer.
+11. When the student asks for Quiz Mode:
+    - Ask one question at a time.
+    - Wait for the student's answer before revealing the correct answer.
+    - Tell the student whether the answer is correct.
+    - Briefly explain the correct answer.
+    - Then ask the next question.
+    - Keep track of the student's progress during the current conversation.
 """
     for message in st.session_state.messages:
 
