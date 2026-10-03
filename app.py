@@ -23,6 +23,9 @@ except Exception:
     st.stop()
 
 st.title("🤖 MiniBot")
+st.markdown(
+    "## 👋 Welcome to MiniBot!"
+)
 
 st.markdown(
     "### Your AI Study Assistant"
