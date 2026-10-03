@@ -90,7 +90,7 @@ for message in st.session_state.messages:
 with st.sidebar:
 
     st.header("⚙️ MiniBot")
-st.caption("🆓 Free plan — 20 messages per session")
+    st.caption("🆓 Free plan — 20 messages per session")
     st.write(
         f"💬 Messages used: "
         f"{st.session_state.message_count}/{MAX_MESSAGES}"
