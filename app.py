@@ -24,15 +24,28 @@ except Exception:
 
 st.title("🤖 MiniBot")
 
-st.subheader(
-    "Your Personal AI Assistant"
+st.markdown(
+    "### Your AI Study Assistant"
 )
 
 st.write(
-    "👋 Hello! I'm MiniBot. "
-    "Ask me anything and I'll do my best to help you."
+    "📚 Learn smarter. Understand faster. Prepare better."
 )
 
+st.markdown(
+    """
+    **MiniBot can help you:**
+
+    🧠 Understand difficult concepts  
+    📄 Study from your PDFs and notes  
+    📝 Create study notes and practice questions  
+    🎯 Take interactive quizzes  
+    📅 Build study plans  
+    🖼️ Understand diagrams and images
+    """
+)
+
+st.divider()
 # -----------------------------
 # Chat memory
 # -----------------------------
