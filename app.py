@@ -112,13 +112,13 @@ with st.sidebar:
     st.caption("🆓 Free plan — 20 messages per session")
     st.divider()
 
-st.write("### 💎 Premium")
-st.write("🚀 Higher message limits")
-st.write("📚 Larger study materials")
-st.write("💾 Saved study history")
-st.write("✨ More advanced features")
+    st.write("### 💎 Premium")
+    st.write("🚀 Higher message limits")
+    st.write("📚 Larger study materials")
+    st.write("💾 Saved study history")
+    st.write("✨ More advanced features")
 
-st.caption("Coming soon — ₹99/month")
+    st.caption("Coming soon — ₹99/month")
     st.write(
         f"💬 Messages used: "
         f"{st.session_state.message_count}/{MAX_MESSAGES}"
