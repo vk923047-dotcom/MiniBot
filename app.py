@@ -7,7 +7,8 @@ import tempfile
 import os
 
 st.set_page_config(
-    page_title="MiniBot",
+   st.image("chatbot.png", width=120)
+st.title("🤖 MiniBot")
     page_icon="🤖",
     layout="centered"
 )
