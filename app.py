@@ -218,6 +218,13 @@ Rules:
     - Briefly explain the correct answer.
     - Then ask the next question.
     - Keep track of the student's progress during the current conversation.
+    12. During Quiz Mode:
+    - Keep track of the number of questions asked.
+    - Keep track of the student's correct answers.
+    - Show the current question number when asking each question.
+    - Show the current score after checking each answer.
+    - When the quiz is finished, show the final score as correct answers out of total questions.
+    - Give a short encouraging message at the end.
 """
     for message in st.session_state.messages:
 
