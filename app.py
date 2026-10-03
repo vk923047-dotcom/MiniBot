@@ -26,6 +26,10 @@ st.title("🤖 MiniBot")
 st.markdown(
     "## 👋 Welcome to MiniBot!"
 )
+st.info(
+    "🎓 Study smarter with AI — understand concepts, "
+    "study from PDFs, practice with quizzes, and prepare for exams."
+)
 
 st.markdown(
     "### Your AI Study Assistant"
