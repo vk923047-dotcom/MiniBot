@@ -31,9 +31,14 @@ st.markdown(
     "### Your AI Study Assistant"
 )
 
-st.write(
-    "📚 Learn smarter. Understand faster. Prepare better."
-)
+st.write("### ✨ What MiniBot can do")
+
+st.write("🧠 Explain difficult topics")
+st.write("📄 Turn PDFs into study notes")
+st.write("📝 Generate practice questions")
+st.write("🎯 Interactive Quiz Mode")
+st.write("📅 Create study plans")
+st.write("🖼️ Understand images & diagrams")
 
 st.markdown(
     """
