@@ -88,8 +88,27 @@ for message in st.session_state.messages:
 # -----------------------------
 
 with st.sidebar:
-
     st.header("⚙️ MiniBot")
+
+    # Your existing features
+    st.write("### ✨ What MiniBot can do")
+    st.write("🧠 Explain difficult topics")
+    st.write("📄 Turn PDFs into study notes")
+    st.write("📝 Generate practice questions")
+    st.write("🎯 Interactive Quiz Mode")
+    st.write("📅 Create study plans")
+    st.write("🖼️ Understand images & diagrams")
+
+    # NEW Free Plan section
+    st.divider()
+
+    st.write("### 🆓 Free Plan")
+    st.write("✅ AI tutoring")
+    st.write("✅ PDF study help")
+    st.write("✅ Practice questions")
+    st.write("✅ Quiz Mode")
+    st.write("✅ Study planning")
+    st.caption("💬 20 messages per session")
     st.caption("🆓 Free plan — 20 messages per session")
     st.write(
         f"💬 Messages used: "
