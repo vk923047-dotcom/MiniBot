@@ -105,6 +105,16 @@ for message in st.session_state.messages:
 
 with st.sidebar:
     st.header("⚙️ MiniBot")
+        # Google Login
+    if not st.user.is_logged_in:
+        if st.button("🔐 Continue with Google", use_container_width=True):
+            st.login()
+    else:
+        st.write(f"👤 {st.user.name}")
+        if st.button("🚪 Log out", use_container_width=True):
+            st.logout()
+
+    st.divider()
 
     # Your existing features
     st.write("### ✨ What MiniBot can do")
