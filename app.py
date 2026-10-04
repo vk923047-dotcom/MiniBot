@@ -105,7 +105,8 @@ for message in st.session_state.messages:
 
 with st.sidebar:
     st.header("⚙️ MiniBot")
-        # Google Login
+       
+    # Google Login
     if not st.user.is_logged_in:
         if st.button("🔐 Continue with Google", use_container_width=True):
             st.login()
