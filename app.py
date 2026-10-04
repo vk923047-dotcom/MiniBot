@@ -119,6 +119,8 @@ with st.sidebar:
     st.write("✨ More advanced features")
 
     st.caption("Coming soon — ₹99/month")
+    if st.button("💎 Get Premium", use_container_width=True):
+    st.info("🚀 Premium is coming soon!")
     st.write(
         f"💬 Messages used: "
         f"{st.session_state.message_count}/{MAX_MESSAGES}"
