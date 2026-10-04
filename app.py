@@ -11,6 +11,22 @@ st.set_page_config(
     page_icon="🤖",
     layout="centered"
 )
+st.markdown(
+    """
+    <style>
+    .stMarkdown, .stAlert {
+        overflow-wrap: anywhere;
+        word-wrap: break-word;
+    }
+
+    [data-testid="stChatMessageContent"] {
+        overflow-wrap: anywhere;
+        word-wrap: break-word;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 try:
     client = genai.Client(
