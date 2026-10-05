@@ -150,15 +150,15 @@ with st.sidebar:
     st.caption("🆓 Free plan — 20 messages per session")
     st.divider()
 
-    st.write("### 💎 Premium")
-    st.write("🚀 Higher message limits")
-    st.write("📚 Larger study materials")
-    st.write("💾 Saved study history")
-    st.write("✨ More advanced features")
+        st.write("### 💎 Premium")
+        st.write("🚀 Higher message limits")
+        st.write("📚 Larger study materials")
+        st.write("💾 Saved study history")
+        st.write("✨ More advanced features")
 
-    st.caption("₹99/month")
+        st.caption("₹99/month")
 
-    if st.button("💎 Get Premium", use_container_width=True):
+        if st.button("💎 Get Premium", use_container_width=True):
 
         try:
             subscription_data = {
