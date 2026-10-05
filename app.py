@@ -147,7 +147,24 @@ with st.sidebar:
 
     st.caption("Coming soon — ₹99/month")
     if st.button("💎 Get Premium", use_container_width=True):
-        st.info("🚀 Premium is coming soon!")
+    st.markdown(
+        """
+        <a href="https://rzp.io/rzp/cIz1h2u" target="_blank">
+            <button style="
+                width:100%;
+                padding:12px;
+                background:#0f9d58;
+                color:white;
+                border:none;
+                border-radius:8px;
+                font-size:16px;
+                cursor:pointer;">
+                💳 Continue to Premium — ₹99/month
+            </button>
+        </a>
+        """,
+        unsafe_allow_html=True
+    )
     st.write(
         f"💬 Messages used: "
         f"{st.session_state.message_count}/{MAX_MESSAGES}"
