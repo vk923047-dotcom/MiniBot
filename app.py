@@ -150,7 +150,7 @@ with st.sidebar:
     st.caption("🆓 Free plan — 20 messages per session")
     st.divider()
 
-        st.write("### 💎 Premium")
+    st.write("### 💎 Premium")
     st.write("🚀 Higher message limits")
     st.write("📚 Larger study materials")
     st.write("💾 Saved study history")
