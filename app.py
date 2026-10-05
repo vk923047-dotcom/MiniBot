@@ -150,77 +150,76 @@ with st.sidebar:
     st.caption("🆓 Free plan — 20 messages per session")
     st.divider()
 
-    st.write("### 💎 Premium")
+        st.write("### 💎 Premium")
     st.write("🚀 Higher message limits")
     st.write("📚 Larger study materials")
     st.write("💾 Saved study history")
     st.write("✨ More advanced features")
 
-   st.caption("₹99/month")
+    st.caption("₹99/month")
 
-if st.button("💎 Get Premium", use_container_width=True):
+    if st.button("💎 Get Premium", use_container_width=True):
 
-    try:
-        subscription_data = {
-            "plan_id": RAZORPAY_PLAN_ID,
-            "total_count": 12,
-            "customer_notify": 1
-        }
+        try:
+            subscription_data = {
+                "plan_id": RAZORPAY_PLAN_ID,
+                "total_count": 12,
+                "customer_notify": 1
+            }
 
-        response = requests.post(
-            "https://api.razorpay.com/v1/subscriptions",
-            auth=(
-                RAZORPAY_KEY_ID,
-                RAZORPAY_KEY_SECRET
-            ),
-            json=subscription_data,
-            timeout=20
-        )
-
-        if response.status_code == 200:
-
-            subscription = response.json()
-
-            subscription_link = subscription.get(
-                "short_url"
+            response = requests.post(
+                "https://api.razorpay.com/v1/subscriptions",
+                auth=(
+                    RAZORPAY_KEY_ID,
+                    RAZORPAY_KEY_SECRET
+                ),
+                json=subscription_data,
+                timeout=20
             )
 
-            if subscription_link:
+            if response.status_code == 200:
 
-                st.success(
-                    "✅ Your Premium subscription is ready!"
+                subscription = response.json()
+
+                subscription_link = subscription.get(
+                    "short_url"
                 )
 
-                st.link_button(
-                    "💳 Continue to ₹99/month Premium",
-                    subscription_link,
-                    use_container_width=True
-                )
+                if subscription_link:
+
+                    st.success(
+                        "✅ Your Premium subscription is ready!"
+                    )
+
+                    st.link_button(
+                        "💳 Continue to ₹99/month Premium",
+                        subscription_link,
+                        use_container_width=True
+                    )
+
+                else:
+                    st.error(
+                        "Razorpay did not return a subscription link."
+                    )
 
             else:
                 st.error(
-                    "Razorpay did not return a subscription link."
+                    "❌ Could not create the subscription."
                 )
 
-        else:
+                st.code(
+                    response.text
+                )
+
+        except Exception as e:
 
             st.error(
-                "❌ Could not create the subscription."
+                "❌ Razorpay connection failed."
             )
 
             st.code(
-                response.text
+                str(e)
             )
-
-    except Exception as e:
-
-        st.error(
-            "❌ Razorpay connection failed."
-        )
-
-        st.code(
-            str(e)
-        )
     st.write(
         f"💬 Messages used: "
         f"{st.session_state.message_count}/{MAX_MESSAGES}"
