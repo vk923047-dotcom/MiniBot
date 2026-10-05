@@ -147,7 +147,7 @@ with st.sidebar:
 
     st.caption("Coming soon — ₹99/month")
         if st.button("💎 Get Premium", use_container_width=True):
-    st.markdown(
+        st.markdown(
         """
         <a href="https://rzp.io/rzp/cIz1h2u" target="_blank">
             <button style="
