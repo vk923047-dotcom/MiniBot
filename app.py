@@ -5,6 +5,7 @@ from google import genai
 from PIL import Image
 import tempfile
 import os
+import requests
 
 st.set_page_config(
     page_title="MiniBot",
@@ -37,6 +38,16 @@ except Exception:
         "MiniBot is not connected to its AI service yet."
     )
     st.stop()
+
+
+# -----------------------------
+# Razorpay
+# -----------------------------
+
+RAZORPAY_KEY_ID = st.secrets["RAZORPAY_KEY_ID"]
+RAZORPAY_KEY_SECRET = st.secrets["RAZORPAY_KEY_SECRET"]
+
+RAZORPAY_PLAN_ID = "plan_TkFyotYJk1c9fX"
 
 st.title("🤖 MiniBot")
 st.markdown(
@@ -145,26 +156,71 @@ with st.sidebar:
     st.write("💾 Saved study history")
     st.write("✨ More advanced features")
 
-    st.caption("Coming soon — ₹99/month")
-    if st.button("💎 Get Premium", use_container_width=True):
-        st.markdown(
-        """
-        <a href="https://rzp.io/rzp/cIz1h2u" target="_blank">
-            <button style="
-                width:100%;
-                padding:12px;
-                background:#0f9d58;
-                color:white;
-                border:none;
-                border-radius:8px;
-                font-size:16px;
-                cursor:pointer;">
-                💳 Continue to Premium — ₹99/month
-            </button>
-        </a>
-        """,
-        unsafe_allow_html=True
-    )
+   st.caption("₹99/month")
+
+if st.button("💎 Get Premium", use_container_width=True):
+
+    try:
+        subscription_data = {
+            "plan_id": RAZORPAY_PLAN_ID,
+            "total_count": 12,
+            "customer_notify": 1
+        }
+
+        response = requests.post(
+            "https://api.razorpay.com/v1/subscriptions",
+            auth=(
+                RAZORPAY_KEY_ID,
+                RAZORPAY_KEY_SECRET
+            ),
+            json=subscription_data,
+            timeout=20
+        )
+
+        if response.status_code == 200:
+
+            subscription = response.json()
+
+            subscription_link = subscription.get(
+                "short_url"
+            )
+
+            if subscription_link:
+
+                st.success(
+                    "✅ Your Premium subscription is ready!"
+                )
+
+                st.link_button(
+                    "💳 Continue to ₹99/month Premium",
+                    subscription_link,
+                    use_container_width=True
+                )
+
+            else:
+                st.error(
+                    "Razorpay did not return a subscription link."
+                )
+
+        else:
+
+            st.error(
+                "❌ Could not create the subscription."
+            )
+
+            st.code(
+                response.text
+            )
+
+    except Exception as e:
+
+        st.error(
+            "❌ Razorpay connection failed."
+        )
+
+        st.code(
+            str(e)
+        )
     st.write(
         f"💬 Messages used: "
         f"{st.session_state.message_count}/{MAX_MESSAGES}"
