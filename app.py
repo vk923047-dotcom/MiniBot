@@ -63,8 +63,8 @@ RAZORPAY_PLAN_ID = "plan_TkFyotYJk1c9fX"
 
 # Read Razorpay keys only if they exist.
 # This prevents the whole app from crashing.
-RAZORPAY_KEY_ID = st.secrets["RAZORPAY_KEY_ID"]
-RAZORPAY_KEY_SECRET = st.secrets["RAZORPAY_KEY_SECRET"]
+RAZORPAY_KEY_ID = st.secrets.get("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = st.secrets.get("RAZORPAY_KEY_SECRET")
 
 
 # -----------------------------
