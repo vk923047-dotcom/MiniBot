@@ -149,12 +149,15 @@ with st.sidebar:
     st.caption("💬 20 messages per session")
     st.caption("🆓 Free plan — 20 messages per session")
     st.divider()
+    # Premium Plan
+st.write("### 💎 Premium")
+st.write("₹99/month")
+st.write("Unlock unlimited messages and premium study features.")
 
-        st.write("### 💎 Premium")
-        st.write("🚀 Higher message limits")
-        st.write("📚 Larger study materials")
-        st.write("💾 Saved study history")
-        st.write("✨ More advanced features")
+if st.button("🚀 Upgrade to Premium"):
+    st.info("💳 Payment setup coming soon!")
+
+       
 
         st.caption("₹99/month")
 
