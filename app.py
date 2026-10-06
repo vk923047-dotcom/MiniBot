@@ -1,5 +1,3 @@
-
-
 import streamlit as st
 from google import genai
 from PIL import Image
@@ -7,11 +5,22 @@ import tempfile
 import os
 import requests
 
+
+# -----------------------------
+# Page configuration
+# -----------------------------
+
 st.set_page_config(
     page_title="MiniBot",
     page_icon="🤖",
     layout="centered"
 )
+
+
+# -----------------------------
+# CSS
+# -----------------------------
+
 st.markdown(
     """
     <style>
@@ -29,10 +38,16 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+
+# -----------------------------
+# Gemini AI
+# -----------------------------
+
 try:
     client = genai.Client(
         api_key=st.secrets["GEMINI_API_KEY"]
     )
+
 except Exception:
     st.error(
         "MiniBot is not connected to its AI service yet."
@@ -49,10 +64,17 @@ RAZORPAY_KEY_SECRET = st.secrets["RAZORPAY_KEY_SECRET"]
 
 RAZORPAY_PLAN_ID = "plan_TkFyotYJk1c9fX"
 
+
+# -----------------------------
+# Main page
+# -----------------------------
+
 st.title("🤖 MiniBot")
+
 st.markdown(
     "## 👋 Welcome to MiniBot!"
 )
+
 st.info(
     "🎓 Study smarter with AI — understand concepts, "
     "study from PDFs, practice with quizzes, and prepare for exams."
@@ -84,13 +106,17 @@ st.markdown(
     """
 )
 
+
 st.divider()
+
+
 # -----------------------------
 # Chat memory
 # -----------------------------
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
 
 # -----------------------------
 # Message limit
@@ -101,6 +127,7 @@ MAX_MESSAGES = 20
 if "message_count" not in st.session_state:
     st.session_state.message_count = 0
 
+
 # -----------------------------
 # Display previous messages
 # -----------------------------
@@ -110,26 +137,48 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+
 # -----------------------------
 # Sidebar
 # -----------------------------
 
 with st.sidebar:
+
     st.header("⚙️ MiniBot")
-       
+
+
+    # -------------------------
     # Google Login
+    # -------------------------
+
     if not st.user.is_logged_in:
-        if st.button("🔐 Continue with Google", use_container_width=True):
+
+        if st.button(
+            "🔐 Continue with Google",
+            use_container_width=True
+        ):
             st.login()
+
     else:
+
         st.write(f"👤 {st.user.name}")
-        if st.button("🚪 Log out", use_container_width=True):
+
+        if st.button(
+            "🚪 Log out",
+            use_container_width=True
+        ):
             st.logout()
+
 
     st.divider()
 
-    # Your existing features
+
+    # -------------------------
+    # Features
+    # -------------------------
+
     st.write("### ✨ What MiniBot can do")
+
     st.write("🧠 Explain difficult topics")
     st.write("📄 Turn PDFs into study notes")
     st.write("📝 Generate practice questions")
@@ -137,48 +186,71 @@ with st.sidebar:
     st.write("📅 Create study plans")
     st.write("🖼️ Understand images & diagrams")
 
-    # NEW Free Plan section
+
+    # -------------------------
+    # Free Plan
+    # -------------------------
+
     st.divider()
 
     st.write("### 🆓 Free Plan")
+
     st.write("✅ AI tutoring")
     st.write("✅ PDF study help")
     st.write("✅ Practice questions")
     st.write("✅ Quiz Mode")
     st.write("✅ Study planning")
+
     st.caption("💬 20 messages per session")
     st.caption("🆓 Free plan — 20 messages per session")
-    st.divider()
+
+
+    # -------------------------
     # Premium Plan
-st.write("### 💎 Premium")
-st.write("₹99/month")
-st.write("Unlock unlimited messages and premium study features.")
+    # -------------------------
 
-if st.button("🚀 Upgrade to Premium"):
-    st.info("💳 Payment setup coming soon!")
+    st.divider()
 
-       
+    st.write("### 💎 Premium")
 
-        st.caption("₹99/month")
+    st.caption("₹99/month")
 
-        if st.button("💎 Get Premium", use_container_width=True):
+    st.write(
+        "Unlock unlimited messages and premium study features."
+    )
+
+
+    # -------------------------
+    # Razorpay Premium
+    # -------------------------
+
+    if st.button(
+        "💎 Get Premium",
+        use_container_width=True
+    ):
 
         try:
+
             subscription_data = {
                 "plan_id": RAZORPAY_PLAN_ID,
                 "total_count": 12,
                 "customer_notify": 1
             }
 
+
             response = requests.post(
                 "https://api.razorpay.com/v1/subscriptions",
+
                 auth=(
                     RAZORPAY_KEY_ID,
                     RAZORPAY_KEY_SECRET
                 ),
+
                 json=subscription_data,
+
                 timeout=20
             )
+
 
             if response.status_code == 200:
 
@@ -187,6 +259,7 @@ if st.button("🚀 Upgrade to Premium"):
                 subscription_link = subscription.get(
                     "short_url"
                 )
+
 
                 if subscription_link:
 
@@ -200,12 +273,16 @@ if st.button("🚀 Upgrade to Premium"):
                         use_container_width=True
                     )
 
+
                 else:
+
                     st.error(
                         "Razorpay did not return a subscription link."
                     )
 
+
             else:
+
                 st.error(
                     "❌ Could not create the subscription."
                 )
@@ -213,6 +290,7 @@ if st.button("🚀 Upgrade to Premium"):
                 st.code(
                     response.text
                 )
+
 
         except Exception as e:
 
@@ -223,20 +301,39 @@ if st.button("🚀 Upgrade to Premium"):
             st.code(
                 str(e)
             )
+
+
+    # -------------------------
+    # Message counter
+    # -------------------------
+
     st.write(
         f"💬 Messages used: "
         f"{st.session_state.message_count}/{MAX_MESSAGES}"
     )
 
+
+    # -------------------------
+    # Clear Chat
+    # -------------------------
+
     if st.button(
         "🗑️ Clear Chat",
         use_container_width=True
     ):
+
         st.session_state.messages = []
         st.session_state.message_count = 0
+
         st.rerun()
 
+
     st.divider()
+
+
+    # -------------------------
+    # MiniBot abilities
+    # -------------------------
 
     st.write("MiniBot can:")
 
@@ -246,12 +343,14 @@ if st.button("🚀 Upgrade to Premium"):
     st.write("📄 Read PDFs")
     st.write("💡 Brainstorm ideas")
 
+
 # -----------------------------
 # File upload
 # -----------------------------
 
 uploaded_file = st.file_uploader(
     "📎 Upload an image or PDF",
+
     type=[
         "png",
         "jpg",
@@ -260,6 +359,11 @@ uploaded_file = st.file_uploader(
         "pdf"
     ]
 )
+
+
+# -----------------------------
+# Display uploaded image
+# -----------------------------
 
 if uploaded_file is not None:
 
@@ -273,6 +377,7 @@ if uploaded_file is not None:
             use_container_width=True
         )
 
+
 # -----------------------------
 # Chat input
 # -----------------------------
@@ -281,9 +386,13 @@ user_message = st.chat_input(
     "💬 Type your message..."
 )
 
+
 if user_message:
 
+    # -------------------------
     # Check message limit
+    # -------------------------
+
     if st.session_state.message_count >= MAX_MESSAGES:
 
         st.warning(
@@ -298,10 +407,18 @@ if user_message:
 
         st.stop()
 
-    # Count this message
+
+    # -------------------------
+    # Count message
+    # -------------------------
+
     st.session_state.message_count += 1
 
+
+    # -------------------------
     # Save user message
+    # -------------------------
+
     st.session_state.messages.append(
         {
             "role": "user",
@@ -309,12 +426,16 @@ if user_message:
         }
     )
 
+
     with st.chat_message("user"):
+
         st.markdown(user_message)
 
-    # -----------------------------
+
+    # -------------------------
     # Build conversation
-    # -----------------------------
+    # -------------------------
+
     conversation = """
 You are MiniBot, a friendly and helpful Student AI Assistant.
 
@@ -357,7 +478,6 @@ When the student asks for practice questions:
 - Provide answers when the student asks for them.
 - Do not create questions based on information that is not in the provided material.
 
-
 Rules:
 1. Use simple language whenever possible.
 2. Explain difficult topics step by step.
@@ -376,14 +496,14 @@ Rules:
     - Briefly explain the correct answer.
     - Then ask the next question.
     - Keep track of the student's progress during the current conversation.
-    12. During Quiz Mode:
+12. During Quiz Mode:
     - Keep track of the number of questions asked.
     - Keep track of the student's correct answers.
     - Show the current question number when asking each question.
     - Show the current score after checking each answer.
     - When the quiz is finished, show the final score as correct answers out of total questions.
     - Give a short encouraging message at the end.
-    13. When the student asks for a study plan:
+13. When the student asks for a study plan:
     - Ask for the exam date or number of days available if it is not provided.
     - Use the uploaded study material when available.
     - Divide the material into manageable daily sections.
@@ -392,10 +512,17 @@ Rules:
     - Prioritize important topics.
     - Include short breaks when appropriate.
 """
+
+
+    # -------------------------
+    # Add previous messages
+    # -------------------------
+
     for message in st.session_state.messages:
 
         role = message["role"]
         content = message["content"]
+
 
         if role == "user":
 
@@ -403,17 +530,21 @@ Rules:
                 f"User: {content}\n"
             )
 
+
         elif role == "assistant":
 
             conversation += (
                 f"MiniBot: {content}\n"
             )
 
+
     conversation += "MiniBot:"
+
 
     contents = [
         conversation
     ]
+
 
     # -----------------------------
     # Image
@@ -426,6 +557,7 @@ Rules:
             image = Image.open(uploaded_file)
 
             contents.append(image)
+
 
     # -----------------------------
     # PDF
@@ -440,11 +572,13 @@ Rules:
                 suffix=".pdf"
             )
 
+
             temp_pdf.write(
                 uploaded_file.getvalue()
             )
 
             temp_pdf.close()
+
 
             try:
 
@@ -453,6 +587,7 @@ Rules:
                 )
 
                 contents.append(pdf_file)
+
 
             finally:
 
@@ -463,6 +598,7 @@ Rules:
                     os.remove(
                         temp_pdf.name
                     )
+
 
     # -----------------------------
     # Generate answer
@@ -483,6 +619,7 @@ Rules:
 
                 answer = response.text
 
+
             except Exception as e:
 
                 answer = (
@@ -490,7 +627,9 @@ Rules:
                     f"{e}"
                 )
 
+
         st.markdown(answer)
+
 
     # -----------------------------
     # Save assistant answer
