@@ -59,10 +59,12 @@ except Exception:
 # Razorpay
 # -----------------------------
 
-RAZORPAY_KEY_ID = st.secrets["RAZORPAY_KEY_ID"]
-RAZORPAY_KEY_SECRET = st.secrets["RAZORPAY_KEY_SECRET"]
-
 RAZORPAY_PLAN_ID = "plan_TkFyotYJk1c9fX"
+
+# Read Razorpay keys only if they exist.
+# This prevents the whole app from crashing.
+RAZORPAY_KEY_ID = st.secrets.get("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = st.secrets.get("RAZORPAY_KEY_SECRET")
 
 
 # -----------------------------
@@ -106,7 +108,6 @@ st.markdown(
     """
 )
 
-
 st.divider()
 
 
@@ -146,7 +147,6 @@ with st.sidebar:
 
     st.header("⚙️ MiniBot")
 
-
     # -------------------------
     # Google Login
     # -------------------------
@@ -168,7 +168,6 @@ with st.sidebar:
             use_container_width=True
         ):
             st.logout()
-
 
     st.divider()
 
@@ -229,78 +228,84 @@ with st.sidebar:
         use_container_width=True
     ):
 
-        try:
+        # Check whether Razorpay keys have been added
+        if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
 
-            subscription_data = {
-                "plan_id": RAZORPAY_PLAN_ID,
-                "total_count": 12,
-                "customer_notify": 1
-            }
-
-
-            response = requests.post(
-                "https://api.razorpay.com/v1/subscriptions",
-
-                auth=(
-                    RAZORPAY_KEY_ID,
-                    RAZORPAY_KEY_SECRET
-                ),
-
-                json=subscription_data,
-
-                timeout=20
+            st.warning(
+                "⚠️ Razorpay payment setup needs to be connected."
             )
 
+            st.info(
+                "Your Premium plan is already configured. "
+                "The Razorpay API keys still need to be added "
+                "to Streamlit Secrets."
+            )
 
-            if response.status_code == 200:
+        else:
 
-                subscription = response.json()
+            try:
 
-                subscription_link = subscription.get(
-                    "short_url"
+                subscription_data = {
+                    "plan_id": RAZORPAY_PLAN_ID,
+                    "total_count": 12,
+                    "customer_notify": 1
+                }
+
+                response = requests.post(
+                    "https://api.razorpay.com/v1/subscriptions",
+                    auth=(
+                        RAZORPAY_KEY_ID,
+                        RAZORPAY_KEY_SECRET
+                    ),
+                    json=subscription_data,
+                    timeout=20
                 )
 
+                if response.status_code == 200:
 
-                if subscription_link:
+                    subscription = response.json()
 
-                    st.success(
-                        "✅ Your Premium subscription is ready!"
+                    subscription_link = subscription.get(
+                        "short_url"
                     )
 
-                    st.link_button(
-                        "💳 Continue to ₹99/month Premium",
-                        subscription_link,
-                        use_container_width=True
-                    )
+                    if subscription_link:
 
+                        st.success(
+                            "✅ Your Premium subscription is ready!"
+                        )
+
+                        st.link_button(
+                            "💳 Continue to ₹99/month Premium",
+                            subscription_link,
+                            use_container_width=True
+                        )
+
+                    else:
+
+                        st.error(
+                            "Razorpay did not return a subscription link."
+                        )
 
                 else:
 
                     st.error(
-                        "Razorpay did not return a subscription link."
+                        "❌ Could not create the subscription."
                     )
 
+                    st.code(
+                        response.text
+                    )
 
-            else:
+            except Exception as e:
 
                 st.error(
-                    "❌ Could not create the subscription."
+                    "❌ Razorpay connection failed."
                 )
 
                 st.code(
-                    response.text
+                    str(e)
                 )
-
-
-        except Exception as e:
-
-            st.error(
-                "❌ Razorpay connection failed."
-            )
-
-            st.code(
-                str(e)
-            )
 
 
     # -------------------------
@@ -350,7 +355,6 @@ with st.sidebar:
 
 uploaded_file = st.file_uploader(
     "📎 Upload an image or PDF",
-
     type=[
         "png",
         "jpg",
@@ -426,9 +430,7 @@ if user_message:
         }
     )
 
-
     with st.chat_message("user"):
-
         st.markdown(user_message)
 
 
@@ -523,13 +525,11 @@ Rules:
         role = message["role"]
         content = message["content"]
 
-
         if role == "user":
 
             conversation += (
                 f"User: {content}\n"
             )
-
 
         elif role == "assistant":
 
@@ -572,13 +572,11 @@ Rules:
                 suffix=".pdf"
             )
 
-
             temp_pdf.write(
                 uploaded_file.getvalue()
             )
 
             temp_pdf.close()
-
 
             try:
 
@@ -587,7 +585,6 @@ Rules:
                 )
 
                 contents.append(pdf_file)
-
 
             finally:
 
@@ -619,14 +616,12 @@ Rules:
 
                 answer = response.text
 
-
             except Exception as e:
 
                 answer = (
                     "❌ Something went wrong.\n\n"
                     f"{e}"
                 )
-
 
         st.markdown(answer)
 
