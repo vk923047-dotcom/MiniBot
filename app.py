@@ -148,23 +148,23 @@ with st.sidebar:
     # Google Login
     # -------------------------
 
-    if not st.user.is_logged_in:
+    if st.user.is_logged_in:
 
-        if st.button(
-            "🔐 Continue with Google",
-            use_container_width=True
-        ):
-            st.login()
+    st.write(f"👤 {st.user.name}")
 
-    else:
+    if st.button(
+        "🚪 Log out",
+        use_container_width=True
+    ):
+        st.logout()
 
-        st.write(f"👤 {st.user.name}")
+else:
 
-        if st.button(
-            "🚪 Log out",
-            use_container_width=True
-        ):
-            st.logout()
+    if st.button(
+        "🔐 Continue with Google",
+        use_container_width=True
+    ):
+        st.login()
 
     st.divider()
 
