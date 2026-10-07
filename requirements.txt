@@ -2,3 +2,4 @@ streamlit
 google-genai
 Pillow
 Authlib>=1.3.2
+gunicorn
