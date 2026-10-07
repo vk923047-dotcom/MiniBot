@@ -148,7 +148,7 @@ with st.sidebar:
     # Google Login
     # -------------------------
 
-    if st.user.is_logged_in:
+        if st.user.is_logged_in:
 
     st.write(f"👤 {st.user.name}")
 
@@ -158,7 +158,7 @@ with st.sidebar:
     ):
         st.logout()
 
-else:
+    else:
 
     if st.button(
         "🔐 Continue with Google",
