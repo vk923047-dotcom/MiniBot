@@ -44,9 +44,7 @@ st.markdown(
 # -----------------------------
 
 try:
-    client = genai.Client(
-        api_key=st.secrets["GEMINI_API_KEY"]
-    )
+   client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 except Exception:
     st.error(
