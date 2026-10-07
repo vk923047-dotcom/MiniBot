@@ -1,11 +1,16 @@
+```python
 import os
 import tempfile
-
 import requests
 import streamlit as st
 from google import genai
+from google.genai import types
 from PIL import Image
 
+
+# ============================================================
+# PAGE CONFIG
+# ============================================================
 
 st.set_page_config(
     page_title="MiniBot",
@@ -14,17 +19,25 @@ st.set_page_config(
 )
 
 
+# ============================================================
+# CSS
+# ============================================================
+
 st.markdown(
     """
     <style>
-    .stMarkdown, .stAlert {
+    .stMarkdown,
+    .stAlert,
+    [data-testid="stChatMessageContent"] {
         overflow-wrap: anywhere;
         word-wrap: break-word;
     }
 
-    [data-testid="stChatMessageContent"] {
-        overflow-wrap: anywhere;
-        word-wrap: break-word;
+    .minibot-card {
+        padding: 20px;
+        border-radius: 15px;
+        border: 1px solid rgba(128,128,128,0.25);
+        margin-bottom: 15px;
     }
     </style>
     """,
@@ -32,219 +45,366 @@ st.markdown(
 )
 
 
-# -----------------------------
-# Gemini AI
-# -----------------------------
+# ============================================================
+# SETTINGS
+# ============================================================
+
+MODEL_NAME = "gemini-3.8-flash"
+
+FREE_MESSAGE_LIMIT = 20
+
+RAZORPAY_PLAN_ID = os.environ.get(
+    "RAZORPAY_PLAN_ID",
+    "plan_TkFyotYJk1c9fX"
+)
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
+RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID")
+
+RAZORPAY_KEY_SECRET = os.environ.get(
+    "RAZORPAY_KEY_SECRET"
+)
+
+
+# ============================================================
+# GEMINI CONNECTION
+# ============================================================
+
 if not GEMINI_API_KEY:
+
     st.error("MiniBot is not connected to its AI service yet.")
-    st.info("Add GEMINI_API_KEY to the Render environment variables.")
+
+    st.info(
+        "Add GEMINI_API_KEY to the Render environment variables."
+    )
+
     st.stop()
+
 
 try:
-    client = genai.Client(api_key=GEMINI_API_KEY)
+
+    client = genai.Client(
+        api_key=GEMINI_API_KEY
+    )
+
 except Exception as e:
+
     st.error("MiniBot could not connect to the AI service.")
+
     st.code(str(e))
+
     st.stop()
 
 
-# -----------------------------
-# Razorpay
-# -----------------------------
-
-RAZORPAY_PLAN_ID = "plan_TkFyotYJk1c9fX"
-RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID")
-RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET")
-
-
-# -----------------------------
-# Main page
-# -----------------------------
-
-st.title("🤖 MiniBot")
-
-st.markdown("## 👋 Welcome to MiniBot!")
-
-st.info(
-    "🎓 Study smarter with AI — understand concepts, study from PDFs, "
-    "practice with quizzes, and prepare for exams."
-)
-
-st.markdown("### Your AI Study Assistant")
-
-st.write("### ✨ What MiniBot can do")
-st.write("🧠 Explain difficult topics")
-st.write("📄 Turn PDFs into study notes")
-st.write("📝 Generate practice questions")
-st.write("🎯 Interactive Quiz Mode")
-st.write("📅 Create study plans")
-st.write("🖼️ Understand images & diagrams")
-
-st.markdown(
-    """
-    **MiniBot can help you:**
-
-    🧠 Understand difficult concepts  
-    📄 Study from your PDFs and notes  
-    📝 Create study notes and practice questions  
-    🎯 Take interactive quizzes  
-    📅 Build study plans  
-    🖼️ Understand diagrams and images
-    """
-)
-
-st.divider()
-
-
-# -----------------------------
-# Session state
-# -----------------------------
+# ============================================================
+# SESSION STATE
+# ============================================================
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+
 if "message_count" not in st.session_state:
     st.session_state.message_count = 0
 
-MAX_MESSAGES = 20
+
+if "premium" not in st.session_state:
+    st.session_state.premium = False
 
 
-# -----------------------------
-# Sidebar
-# -----------------------------
+if "uploaded_file_name" not in st.session_state:
+    st.session_state.uploaded_file_name = None
+
+
+# ============================================================
+# MINI BOT INSTRUCTIONS
+# ============================================================
+
+SYSTEM_INSTRUCTION = """
+You are MiniBot, a friendly and highly useful Student AI Assistant.
+
+Your purpose is to help students learn, understand concepts,
+study from documents, practice questions, prepare for exams,
+and organize their study.
+
+PERSONALITY:
+- Friendly
+- Patient
+- Encouraging
+- Clear
+- Helpful
+- Never unnecessarily complicated
+
+MAIN FEATURES:
+
+1. CONCEPT EXPLANATION
+Explain difficult topics in simple language.
+Use step-by-step explanations.
+Give examples when useful.
+
+2. PROBLEM SOLVING
+For numerical questions:
+- Show the important steps.
+- Explain formulas.
+- Substitute values clearly.
+- Give the final answer with units when appropriate.
+
+3. STUDY NOTES
+When the user provides study material:
+- Identify important concepts.
+- Organize information with headings.
+- Use bullet points.
+- Highlight formulas and definitions.
+- Do not invent information.
+
+4. PDF STUDY
+When a PDF is uploaded:
+- Read the document carefully.
+- Answer questions using the document.
+- Summarize it when requested.
+- Create notes when requested.
+- Create questions from the document when requested.
+
+5. PRACTICE QUESTIONS
+Create:
+- Multiple choice questions
+- Short-answer questions
+- Conceptual questions
+- Numerical questions when appropriate
+
+Use the user's provided study material when available.
+
+6. QUIZ MODE
+When the user asks for Quiz Mode:
+- Ask one question at a time.
+- Wait for the user's answer.
+- Tell the user whether it is correct.
+- Explain the answer briefly.
+- Continue to the next question.
+- Keep track of score during the conversation.
+
+7. STUDY PLANS
+When asked for a study plan:
+- Ask for exam date or available days if necessary.
+- Divide topics into realistic sections.
+- Include revision.
+- Include practice.
+- Include breaks when appropriate.
+- Prioritize important topics.
+
+8. IMAGES AND DIAGRAMS
+When an image is provided:
+- Analyze it carefully.
+- Explain diagrams step by step.
+- Read visible text when possible.
+- Do not pretend to see information that is unclear.
+
+IMPORTANT RULES:
+- Use simple language.
+- Teach the reasoning, not just the answer.
+- Never deliberately invent facts.
+- If information is uncertain, say so.
+- Stay focused on the user's question.
+- Do not unnecessarily repeat the entire conversation.
+- Be concise unless the user asks for detail.
+"""
+
+
+# ============================================================
+# SIDEBAR
+# ============================================================
 
 with st.sidebar:
 
     st.header("⚙️ MiniBot")
 
-    st.info(
-        "🔐 Google login will be added after the main chatbot is working."
+    st.write("### 🎓 AI Study Assistant")
+
+    st.caption(
+        "Learn smarter. Practice better. Prepare faster."
     )
 
     st.divider()
 
-    st.write("### ✨ What MiniBot can do")
-    st.write("🧠 Explain difficult topics")
-    st.write("📄 Turn PDFs into study notes")
-    st.write("📝 Generate practice questions")
-    st.write("🎯 Interactive Quiz Mode")
-    st.write("📅 Create study plans")
-    st.write("🖼️ Understand images & diagrams")
-
-    st.divider()
+    # --------------------------------------------------------
+    # FREE PLAN
+    # --------------------------------------------------------
 
     st.write("### 🆓 Free Plan")
+
     st.write("✅ AI tutoring")
     st.write("✅ PDF study help")
+    st.write("✅ Image & diagram analysis")
     st.write("✅ Practice questions")
     st.write("✅ Quiz Mode")
     st.write("✅ Study planning")
-    st.caption("💬 20 messages per session")
+
+    if st.session_state.premium:
+
+        st.success("💎 Premium Active")
+
+        st.caption(
+            "Premium mode is active for this session."
+        )
+
+    else:
+
+        st.caption(
+            f"💬 {FREE_MESSAGE_LIMIT} free messages per session"
+        )
 
     st.divider()
 
+    # --------------------------------------------------------
+    # PREMIUM
+    # --------------------------------------------------------
+
     st.write("### 💎 Premium")
+
     st.caption("₹99/month")
 
     st.write(
-        "Unlock unlimited messages and premium study features."
+        "Unlock unlimited AI study messages and premium "
+        "study features."
     )
 
-    if st.button(
-        "💎 Get Premium",
-        use_container_width=True
-    ):
+    if not st.session_state.premium:
 
-        if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
+        if st.button(
+            "💎 Get Premium",
+            use_container_width=True
+        ):
 
-            st.warning(
-                "⚠️ Razorpay payment setup needs to be connected."
-            )
+            if (
+                not RAZORPAY_KEY_ID
+                or not RAZORPAY_KEY_SECRET
+            ):
 
-            st.info(
-                "Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET "
-                "to the Render environment variables."
-            )
-
-        else:
-
-            try:
-
-                subscription_data = {
-                    "plan_id": RAZORPAY_PLAN_ID,
-                    "total_count": 12,
-                    "customer_notify": 1,
-                }
-
-                response = requests.post(
-                    "https://api.razorpay.com/v1/subscriptions",
-                    auth=(
-                        RAZORPAY_KEY_ID,
-                        RAZORPAY_KEY_SECRET,
-                    ),
-                    json=subscription_data,
-                    timeout=20,
+                st.warning(
+                    "Razorpay is not connected yet."
                 )
 
-                if response.status_code in (200, 201):
+                st.info(
+                    "Add RAZORPAY_KEY_ID and "
+                    "RAZORPAY_KEY_SECRET to Render."
+                )
 
-                    subscription = response.json()
+            else:
 
-                    subscription_link = subscription.get(
-                        "short_url"
-                    )
+                with st.spinner(
+                    "Creating your Premium subscription..."
+                ):
 
-                    if subscription_link:
+                    try:
 
-                        st.success(
-                            "✅ Your Premium subscription is ready!"
+                        subscription_data = {
+                            "plan_id": RAZORPAY_PLAN_ID,
+                            "total_count": 12,
+                            "customer_notify": 1,
+                        }
+
+                        response = requests.post(
+                            "https://api.razorpay.com/v1/subscriptions",
+                            auth=(
+                                RAZORPAY_KEY_ID,
+                                RAZORPAY_KEY_SECRET,
+                            ),
+                            json=subscription_data,
+                            timeout=20,
                         )
 
-                        st.link_button(
-                            "💳 Continue to ₹99/month Premium",
-                            subscription_link,
-                            use_container_width=True,
-                        )
+                        if response.status_code in (
+                            200,
+                            201,
+                        ):
 
-                    else:
+                            data = response.json()
+
+                            subscription_url = data.get(
+                                "short_url"
+                            )
+
+                            if subscription_url:
+
+                                st.success(
+                                    "Subscription created."
+                                )
+
+                                st.link_button(
+                                    "💳 Continue to Payment",
+                                    subscription_url,
+                                    use_container_width=True,
+                                )
+
+                                st.caption(
+                                    "Complete the Razorpay payment "
+                                    "to subscribe."
+                                )
+
+                            else:
+
+                                st.error(
+                                    "Razorpay did not return "
+                                    "a payment link."
+                                )
+
+                                st.code(
+                                    response.text
+                                )
+
+                        else:
+
+                            st.error(
+                                "Razorpay could not create "
+                                "the subscription."
+                            )
+
+                            st.code(
+                                response.text
+                            )
+
+                    except Exception as e:
 
                         st.error(
-                            "Razorpay did not return a subscription link."
+                            "Razorpay connection failed."
                         )
 
                         st.code(
-                            response.text
+                            str(e)
                         )
 
-                else:
+    else:
 
-                    st.error(
-                        "❌ Could not create the subscription."
-                    )
-
-                    st.code(
-                        response.text
-                    )
-
-            except Exception as e:
-
-                st.error(
-                    "❌ Razorpay connection failed."
-                )
-
-                st.code(
-                    str(e)
-                )
+        st.success(
+            "Premium features are available."
+        )
 
     st.divider()
 
-    st.write(
-        f"💬 Messages used: "
-        f"{st.session_state.message_count}/{MAX_MESSAGES}"
-    )
+    # --------------------------------------------------------
+    # MESSAGE COUNTER
+    # --------------------------------------------------------
+
+    if st.session_state.premium:
+
+        st.write(
+            "💬 Messages: Unlimited"
+        )
+
+    else:
+
+        st.write(
+            f"💬 Messages used: "
+            f"{st.session_state.message_count}/"
+            f"{FREE_MESSAGE_LIMIT}"
+        )
+
+    st.divider()
+
+    # --------------------------------------------------------
+    # CLEAR CHAT
+    # --------------------------------------------------------
 
     if st.button(
         "🗑️ Clear Chat",
@@ -252,37 +412,89 @@ with st.sidebar:
     ):
 
         st.session_state.messages = []
+
         st.session_state.message_count = 0
+
+        st.session_state.uploaded_file_name = None
 
         st.rerun()
 
-    st.divider()
 
-    st.write("MiniBot can:")
+# ============================================================
+# MAIN PAGE
+# ============================================================
 
-    st.write("💬 Answer questions")
-    st.write("🧠 Help you learn")
-    st.write("🖼️ Understand images")
-    st.write("📄 Read PDFs")
-    st.write("💡 Brainstorm ideas")
+st.title("🤖 MiniBot")
+
+st.markdown(
+    "## 👋 Welcome to MiniBot!"
+)
+
+st.info(
+    "🎓 Study smarter with AI — understand concepts, "
+    "study from PDFs, practice with quizzes, and "
+    "prepare for exams."
+)
 
 
-# -----------------------------
-# Display previous messages
-# -----------------------------
+# ============================================================
+# FEATURE CARDS
+# ============================================================
+
+st.markdown(
+    """
+    <div class="minibot-card">
+
+    ### 🧠 Your AI Study Assistant
+
+    MiniBot helps you understand concepts, study from PDFs,
+    practice questions, analyze diagrams, create quizzes,
+    and organize your study.
+
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+st.write("### ✨ What MiniBot can do")
+
+col1, col2 = st.columns(2)
+
+with col1:
+
+    st.write("🧠 Explain difficult topics")
+    st.write("📄 Study from PDFs")
+    st.write("📝 Create practice questions")
+
+with col2:
+
+    st.write("🎯 Interactive Quiz Mode")
+    st.write("📅 Create study plans")
+    st.write("🖼️ Understand diagrams")
+
+
+st.divider()
+
+
+# ============================================================
+# DISPLAY PREVIOUS MESSAGES
+# ============================================================
 
 for message in st.session_state.messages:
 
-    with st.chat_message(message["role"]):
+    with st.chat_message(
+        message["role"]
+    ):
 
         st.markdown(
             message["content"]
         )
 
 
-# -----------------------------
-# File upload
-# -----------------------------
+# ============================================================
+# FILE UPLOAD
+# ============================================================
 
 uploaded_file = st.file_uploader(
     "📎 Upload an image or PDF",
@@ -296,64 +508,78 @@ uploaded_file = st.file_uploader(
 )
 
 
-# -----------------------------
-# Display uploaded image
-# -----------------------------
+# ============================================================
+# DISPLAY IMAGE
+# ============================================================
 
 if uploaded_file is not None:
 
-    if uploaded_file.type.startswith("image/"):
+    if uploaded_file.type.startswith(
+        "image/"
+    ):
 
-        image = Image.open(
-            uploaded_file
-        )
+        try:
 
-        st.image(
-            image,
-            caption="Uploaded image",
-            use_container_width=True,
-        )
+            image = Image.open(
+                uploaded_file
+            )
+
+            st.image(
+                image,
+                caption="Uploaded image",
+                use_container_width=True,
+            )
+
+        except Exception:
+
+            st.error(
+                "Could not read this image."
+            )
 
 
-# -----------------------------
-# Chat input
-# -----------------------------
+# ============================================================
+# CHAT INPUT
+# ============================================================
 
 user_message = st.chat_input(
-    "💬 Type your message..."
+    "💬 Ask MiniBot anything..."
 )
 
 
 if user_message:
 
-    # -------------------------
-    # Check message limit
-    # -------------------------
+    # --------------------------------------------------------
+    # FREE LIMIT
+    # --------------------------------------------------------
 
-    if st.session_state.message_count >= MAX_MESSAGES:
+    if (
+        not st.session_state.premium
+        and st.session_state.message_count
+        >= FREE_MESSAGE_LIMIT
+    ):
 
         st.warning(
             "🛑 You have reached the 20-message "
-            "free limit for this session."
+            "Free Plan limit for this session."
         )
 
         st.info(
-            "💎 More messages are available with Premium."
+            "💎 Upgrade to Premium for unlimited messages."
         )
 
         st.stop()
 
 
-    # -------------------------
-    # Count message
-    # -------------------------
+    # --------------------------------------------------------
+    # COUNT MESSAGE
+    # --------------------------------------------------------
 
     st.session_state.message_count += 1
 
 
-    # -------------------------
-    # Save user message
-    # -------------------------
+    # --------------------------------------------------------
+    # SAVE USER MESSAGE
+    # --------------------------------------------------------
 
     st.session_state.messages.append(
         {
@@ -362,6 +588,7 @@ if user_message:
         }
     )
 
+
     with st.chat_message("user"):
 
         st.markdown(
@@ -369,184 +596,161 @@ if user_message:
         )
 
 
-    # -------------------------
-    # MiniBot instructions
-    # -------------------------
+    # --------------------------------------------------------
+    # BUILD CONVERSATION
+    # --------------------------------------------------------
 
-    conversation = """
-You are MiniBot, a friendly and helpful Student AI Assistant.
+    conversation_parts = []
 
-Your main purpose is to help students learn and understand subjects.
-
-Personality:
-- Friendly
-- Patient
-- Encouraging
-- Clear
-- Supportive
-
-You can help students with:
-- Explaining difficult concepts
-- Step-by-step problem solving
-- Summarizing study material and PDFs
-- Creating clear study notes
-- Generating practice questions from study material
-- Creating quizzes with answers for revision
-- Creating personalized study plans and revision schedules
-- Explaining diagrams and images
-- Revision and study planning
-- Brainstorming ideas for projects
-
-When a student uploads a PDF:
-- Read the PDF carefully.
-- Identify important concepts and information.
-- Create clear, organized study notes when requested.
-- Use headings and bullet points.
-- Highlight important formulas, definitions, and key points.
-- Keep notes focused on useful study material.
-- If the PDF contains important examples, include them briefly.
-- Do not invent information that is not present in the PDF.
-
-When the student asks for practice questions:
-- Create questions based on the provided study material.
-- Cover important topics.
-- Mix short-answer, conceptual, and multiple-choice questions when appropriate.
-- Provide answers when requested.
-- Do not create questions based on information that is not in the provided material.
-
-Rules:
-1. Use simple language whenever possible.
-2. Explain difficult topics step by step.
-3. Teach the reasoning, not just the final answer.
-4. Give examples when they make a concept easier.
-5. Keep answers reasonably concise.
-6. Remember the current conversation.
-7. Never make up information.
-8. If you are unsure, clearly say so.
-9. For calculations, show the important steps.
-10. Encourage the student to understand the topic rather than simply copy an answer.
-11. When the student asks for Quiz Mode:
-    - Ask one question at a time.
-    - Wait for the student's answer before revealing the correct answer.
-    - Tell the student whether the answer is correct.
-    - Briefly explain the correct answer.
-    - Then ask the next question.
-    - Keep track of progress during the current conversation.
-12. During Quiz Mode:
-    - Keep track of questions asked.
-    - Keep track of correct answers.
-    - Show the current question number.
-    - Show the current score after checking each answer.
-    - When the quiz is finished, show the final score.
-    - Give a short encouraging message at the end.
-13. When the student asks for a study plan:
-    - Ask for the exam date or number of days available if it is not provided.
-    - Use uploaded study material when available.
-    - Divide the material into manageable daily sections.
-    - Include study, revision, and practice time.
-    - Keep the plan realistic and achievable.
-    - Prioritize important topics.
-    - Include short breaks when appropriate.
-"""
+    conversation_parts.append(
+        SYSTEM_INSTRUCTION
+    )
 
 
-    # -------------------------
-    # Add previous messages
-    # -------------------------
+    conversation_parts.append(
+        "\nCURRENT CONVERSATION:\n"
+    )
 
-    for message in st.session_state.messages:
 
-        role = message["role"]
-        content = message["content"]
+    # Keep recent history manageable
+    recent_messages = (
+        st.session_state.messages[-20:]
+    )
 
-        if role == "user":
 
-            conversation += (
-                f"\nUser: {content}\n"
+    for message in recent_messages:
+
+        if message["role"] == "user":
+
+            conversation_parts.append(
+                f"User: {message['content']}"
             )
 
-        elif role == "assistant":
+        elif message["role"] == "assistant":
 
-            conversation += (
-                f"\nMiniBot: {content}\n"
+            conversation_parts.append(
+                f"MiniBot: {message['content']}"
             )
 
 
-    conversation += "\nMiniBot:"
+    conversation_parts.append(
+        f"\n\nUser's latest question:\n{user_message}"
+    )
+
+
+    conversation_parts.append(
+        "\n\nAnswer the user's latest question."
+    )
+
+
+    conversation_text = "\n\n".join(
+        conversation_parts
+    )
 
 
     contents = [
-        conversation
+        conversation_text
     ]
 
 
-    # -------------------------
-    # Add image
-    # -------------------------
+    # --------------------------------------------------------
+    # IMAGE
+    # --------------------------------------------------------
 
     if uploaded_file is not None:
 
-        if uploaded_file.type.startswith("image/"):
+        if uploaded_file.type.startswith(
+            "image/"
+        ):
 
-            image = Image.open(
-                uploaded_file
-            )
+            try:
 
-            contents.append(
-                image
-            )
+                image = Image.open(
+                    uploaded_file
+                )
+
+                contents.append(
+                    image
+                )
+
+            except Exception:
+
+                pass
 
 
-    # -------------------------
-    # Add PDF
-    # -------------------------
+    # --------------------------------------------------------
+    # PDF
+    # --------------------------------------------------------
 
     if uploaded_file is not None:
 
         if uploaded_file.type == "application/pdf":
 
-            temp_pdf = tempfile.NamedTemporaryFile(
-                delete=False,
-                suffix=".pdf",
-            )
+            temp_path = None
 
             try:
 
-                temp_pdf.write(
-                    uploaded_file.getvalue()
-                )
+                with tempfile.NamedTemporaryFile(
+                    delete=False,
+                    suffix=".pdf",
+                ) as temp_pdf:
 
-                temp_pdf.close()
+                    temp_pdf.write(
+                        uploaded_file.getvalue()
+                    )
+
+                    temp_path = temp_pdf.name
+
 
                 pdf_file = client.files.upload(
-                    file=temp_pdf.name
+                    file=temp_path
                 )
+
 
                 contents.append(
                     pdf_file
                 )
 
+
+            except Exception as e:
+
+                st.error(
+                    "MiniBot could not process "
+                    "the uploaded PDF."
+                )
+
+                st.code(
+                    str(e)
+                )
+
+                st.stop()
+
+
             finally:
 
-                try:
-                    temp_pdf.close()
-                except Exception:
-                    pass
-
-                if os.path.exists(
-                    temp_pdf.name
+                if (
+                    temp_path
+                    and os.path.exists(temp_path)
                 ):
 
-                    os.remove(
-                        temp_pdf.name
-                    )
+                    try:
+
+                        os.remove(
+                            temp_path
+                        )
+
+                    except Exception:
+
+                        pass
 
 
-    # -------------------------
-    # Generate answer
-    # -------------------------
+    # --------------------------------------------------------
+    # GENERATE AI RESPONSE
+    # --------------------------------------------------------
 
-    with st.chat_message("assistant"):
+    with st.chat_message(
+        "assistant"
+    ):
 
         with st.spinner(
             "MiniBot is thinking..."
@@ -554,36 +758,49 @@ Rules:
 
             try:
 
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=contents,
+                response = (
+                    client.models.generate_content(
+                        model=MODEL_NAME,
+                        contents=contents,
+                        config=types.GenerateContentConfig(
+                            temperature=0.7,
+                            max_output_tokens=4096,
+                        ),
+                    )
                 )
 
+
                 answer = response.text
+
 
                 if not answer:
 
                     answer = (
-                        "I could not generate a response. "
-                        "Please try again."
+                        "I couldn't generate a response "
+                        "this time. Please try again."
                     )
+
 
             except Exception as e:
 
                 answer = (
-                    "❌ Something went wrong while "
-                    "generating the answer.\n\n"
-                    f"{e}"
+                    "❌ MiniBot encountered an error "
+                    "while generating the answer."
                 )
+
+                st.error(
+                    str(e)
+                )
+
 
         st.markdown(
             answer
         )
 
 
-    # -------------------------
-    # Save assistant answer
-    # -------------------------
+    # --------------------------------------------------------
+    # SAVE ASSISTANT RESPONSE
+    # --------------------------------------------------------
 
     st.session_state.messages.append(
         {
@@ -591,3 +808,40 @@ Rules:
             "content": answer,
         }
     )
+```
+
+### Also make sure your `requirements.txt` contains exactly this
+
+```text
+streamlit
+google-genai
+Pillow
+requests
+```
+
+And on Render, your **Start Command** should be:
+
+```text
+streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+```
+
+**Do not use `gunicorn`.**
+
+Your Render environment variables should be:
+
+```text
+GEMINI_API_KEY
+RAZORPAY_KEY_ID
+RAZORPAY_KEY_SECRET
+RAZORPAY_PLAN_ID
+```
+
+For `RAZORPAY_PLAN_ID`, you can use your existing:
+
+```text
+plan_TkFyotYJk1c9fX
+```
+
+One important correction: this version makes the Razorpay subscription/payment flow work, but **it does not falsely pretend that a payment automatically unlocks Premium**. Proper automatic Premium activation requires a payment webhook/user identity system. I would rather tell you that honestly than give you fake “Premium unlocked” code.
+
+**First deploy this exact version. Don't modify anything inside it.**
