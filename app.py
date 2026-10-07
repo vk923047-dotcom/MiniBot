@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 from google import genai
 from PIL import Image
@@ -43,13 +44,35 @@ st.markdown(
 # Gemini AI
 # -----------------------------
 
-try:
-   client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-except Exception:
+if not GEMINI_API_KEY:
+
     st.error(
         "MiniBot is not connected to its AI service yet."
     )
+
+    st.info(
+        "Please add GEMINI_API_KEY to the Render Environment Variables."
+    )
+
+    st.stop()
+
+
+try:
+
+    client = genai.Client(
+        api_key=GEMINI_API_KEY
+    )
+
+except Exception as e:
+
+    st.error(
+        "MiniBot could not connect to the AI service."
+    )
+
+    st.code(str(e))
+
     st.stop()
 
 
@@ -59,10 +82,18 @@ except Exception:
 
 RAZORPAY_PLAN_ID = "plan_TkFyotYJk1c9fX"
 
-# Read Razorpay keys only if they exist.
-# This prevents the whole app from crashing.
-RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID")
-RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET")
+RAZORPAY_KEY_ID = os.environ.get(
+    "RAZORPAY_KEY_ID"
+)
+
+RAZORPAY_KEY_SECRET = os.environ.get(
+    "RAZORPAY_KEY_SECRET"
+)
+
+RAZORPAY_WEBHOOK_SECRET = os.environ.get(
+    "RAZORPAY_WEBHOOK_SECRET"
+)
+
 
 # -----------------------------
 # Main page
@@ -113,6 +144,7 @@ st.divider()
 # -----------------------------
 
 if "messages" not in st.session_state:
+
     st.session_state.messages = []
 
 
@@ -123,6 +155,7 @@ if "messages" not in st.session_state:
 MAX_MESSAGES = 20
 
 if "message_count" not in st.session_state:
+
     st.session_state.message_count = 0
 
 
@@ -132,8 +165,13 @@ if "message_count" not in st.session_state:
 
 for message in st.session_state.messages:
 
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    with st.chat_message(
+        message["role"]
+    ):
+
+        st.markdown(
+            message["content"]
+        )
 
 
 # -----------------------------
@@ -144,27 +182,15 @@ with st.sidebar:
 
     st.header("⚙️ MiniBot")
 
+
     # -------------------------
-    # Google Login
+    # Login
     # -------------------------
 
-        if st.user.is_logged_in:
+    st.info(
+        "🔐 Google login will be added after the main chatbot is working."
+    )
 
-    st.write(f"👤 {st.user.name}")
-
-    if st.button(
-        "🚪 Log out",
-        use_container_width=True
-    ):
-        st.logout()
-
-    else:
-
-    if st.button(
-        "🔐 Continue with Google",
-        use_container_width=True
-    ):
-        st.login()
 
     st.divider()
 
@@ -197,8 +223,13 @@ with st.sidebar:
     st.write("✅ Quiz Mode")
     st.write("✅ Study planning")
 
-    st.caption("💬 20 messages per session")
-    st.caption("🆓 Free plan — 20 messages per session")
+    st.caption(
+        "💬 20 messages per session"
+    )
+
+    st.caption(
+        "🆓 Free plan — 20 messages per session"
+    )
 
 
     # -------------------------
@@ -225,7 +256,6 @@ with st.sidebar:
         use_container_width=True
     ):
 
-        # Check whether Razorpay keys have been added
         if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
 
             st.warning(
@@ -233,9 +263,9 @@ with st.sidebar:
             )
 
             st.info(
-                "Your Premium plan is already configured. "
-                "The Razorpay API keys still need to be added "
-                "to Streamlit Secrets."
+                "Your Premium plan is configured, "
+                "but the Razorpay API keys still need to be added "
+                "to the Render Environment Variables."
             )
 
         else:
@@ -243,28 +273,43 @@ with st.sidebar:
             try:
 
                 subscription_data = {
+
                     "plan_id": RAZORPAY_PLAN_ID,
+
                     "total_count": 12,
+
                     "customer_notify": 1
+
                 }
 
+
                 response = requests.post(
+
                     "https://api.razorpay.com/v1/subscriptions",
+
                     auth=(
+
                         RAZORPAY_KEY_ID,
+
                         RAZORPAY_KEY_SECRET
+
                     ),
+
                     json=subscription_data,
+
                     timeout=20
+
                 )
+
 
                 if response.status_code == 200:
 
                     subscription = response.json()
 
-                    subscription_link = subscription.get(
-                        "short_url"
+                    subscription_link = (
+                        subscription.get("short_url")
                     )
+
 
                     if subscription_link:
 
@@ -273,9 +318,13 @@ with st.sidebar:
                         )
 
                         st.link_button(
+
                             "💳 Continue to ₹99/month Premium",
+
                             subscription_link,
+
                             use_container_width=True
+
                         )
 
                     else:
@@ -283,6 +332,7 @@ with st.sidebar:
                         st.error(
                             "Razorpay did not return a subscription link."
                         )
+
 
                 else:
 
@@ -293,6 +343,7 @@ with st.sidebar:
                     st.code(
                         response.text
                     )
+
 
             except Exception as e:
 
@@ -311,7 +362,8 @@ with st.sidebar:
 
     st.write(
         f"💬 Messages used: "
-        f"{st.session_state.message_count}/{MAX_MESSAGES}"
+        f"{st.session_state.message_count}/"
+        f"{MAX_MESSAGES}"
     )
 
 
@@ -325,6 +377,7 @@ with st.sidebar:
     ):
 
         st.session_state.messages = []
+
         st.session_state.message_count = 0
 
         st.rerun()
@@ -351,14 +404,23 @@ with st.sidebar:
 # -----------------------------
 
 uploaded_file = st.file_uploader(
+
     "📎 Upload an image or PDF",
+
     type=[
+
         "png",
+
         "jpg",
+
         "jpeg",
+
         "webp",
+
         "pdf"
+
     ]
+
 )
 
 
@@ -368,14 +430,22 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
 
-    if uploaded_file.type.startswith("image/"):
+    if uploaded_file.type.startswith(
+        "image/"
+    ):
 
-        image = Image.open(uploaded_file)
+        image = Image.open(
+            uploaded_file
+        )
 
         st.image(
+
             image,
+
             caption="Uploaded image",
+
             use_container_width=True
+
         )
 
 
@@ -394,7 +464,10 @@ if user_message:
     # Check message limit
     # -------------------------
 
-    if st.session_state.message_count >= MAX_MESSAGES:
+    if (
+        st.session_state.message_count
+        >= MAX_MESSAGES
+    ):
 
         st.warning(
             "🛑 You have reached the 20-message "
@@ -403,7 +476,7 @@ if user_message:
 
         st.info(
             "💎 More messages can be available "
-            "in a future premium version."
+            "in the Premium version."
         )
 
         st.stop()
@@ -421,14 +494,23 @@ if user_message:
     # -------------------------
 
     st.session_state.messages.append(
+
         {
+
             "role": "user",
+
             "content": user_message
+
         }
+
     )
 
+
     with st.chat_message("user"):
-        st.markdown(user_message)
+
+        st.markdown(
+            user_message
+        )
 
 
     # -------------------------
@@ -520,13 +602,16 @@ Rules:
     for message in st.session_state.messages:
 
         role = message["role"]
+
         content = message["content"]
+
 
         if role == "user":
 
             conversation += (
                 f"User: {content}\n"
             )
+
 
         elif role == "assistant":
 
@@ -549,11 +634,17 @@ Rules:
 
     if uploaded_file is not None:
 
-        if uploaded_file.type.startswith("image/"):
+        if uploaded_file.type.startswith(
+            "image/"
+        ):
 
-            image = Image.open(uploaded_file)
+            image = Image.open(
+                uploaded_file
+            )
 
-            contents.append(image)
+            contents.append(
+                image
+            )
 
 
     # -----------------------------
@@ -565,9 +656,13 @@ Rules:
         if uploaded_file.type == "application/pdf":
 
             temp_pdf = tempfile.NamedTemporaryFile(
+
                 delete=False,
+
                 suffix=".pdf"
+
             )
+
 
             temp_pdf.write(
                 uploaded_file.getvalue()
@@ -575,13 +670,19 @@ Rules:
 
             temp_pdf.close()
 
+
             try:
 
                 pdf_file = client.files.upload(
+
                     file=temp_pdf.name
+
                 )
 
-                contents.append(pdf_file)
+                contents.append(
+                    pdf_file
+                )
+
 
             finally:
 
@@ -607,20 +708,30 @@ Rules:
             try:
 
                 response = client.models.generate_content(
-                    model="gemini-3.5-flash-lite",
+
+                    model="gemini-3.8-flash",
+
                     contents=contents
+
                 )
 
                 answer = response.text
 
+
             except Exception as e:
 
                 answer = (
+
                     "❌ Something went wrong.\n\n"
+
                     f"{e}"
+
                 )
 
-        st.markdown(answer)
+
+        st.markdown(
+            answer
+        )
 
 
     # -----------------------------
@@ -628,8 +739,40 @@ Rules:
     # -----------------------------
 
     st.session_state.messages.append(
+
         {
+
             "role": "assistant",
+
             "content": answer
+
         }
+
     )
+```
+
+### What I changed
+
+- Fixed **all indentation problems**.
+- Removed the crashing `st.user.is_logged_in` section for now.
+- Kept your **Gemini environment-variable setup**.
+- Kept **Razorpay ₹99/month** and your existing Plan ID.
+- Kept the **20-message limit**.
+- Kept image and PDF upload.
+- Kept chat memory.
+- Kept your study-assistant instructions.
+- Changed the Gemini model to a currently documented model name, `gemini-3.8-flash`.
+
+**Important:** Google login isn't deleted permanently. We're simply taking it out of the running app until its Streamlit authentication configuration is properly set up. Streamlit's `st.user.is_logged_in` only exists when authentication is configured.
+
+### Now do only this
+
+Replace the **entire contents of `app.py`** with the code above → **Commit changes** → wait for Render to deploy.
+
+Then open MiniBot and send:
+
+**`Hello`**
+
+If it replies, we've finally got the **core MiniBot working on Render**. 🎯
+
+
