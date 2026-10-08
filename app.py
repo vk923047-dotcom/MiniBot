@@ -1,8 +1,10 @@
-```python
 import os
 import tempfile
+import uuid
 import requests
 import streamlit as st
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from google import genai
 from google.genai import types
 from PIL import Image
@@ -50,21 +52,228 @@ st.markdown(
 # ============================================================
 
 MODEL_NAME = "gemini-3.8-flash"
-
 FREE_MESSAGE_LIMIT = 20
 
 RAZORPAY_PLAN_ID = os.environ.get(
     "RAZORPAY_PLAN_ID",
-    "plan_TkFyotYJk1c9fX"
+    "plan_TkFyotYJk1c9fX",
 )
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-
 RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-RAZORPAY_KEY_SECRET = os.environ.get(
-    "RAZORPAY_KEY_SECRET"
-)
+
+# ============================================================
+# DATABASE
+# ============================================================
+
+def get_db_connection():
+    if not DATABASE_URL:
+        return None
+
+    return psycopg2.connect(
+        DATABASE_URL,
+        connect_timeout=10,
+        sslmode="require",
+    )
+
+
+def init_database():
+    if not DATABASE_URL:
+        return False, "DATABASE_URL is not configured."
+
+    connection = None
+
+    try:
+        connection = get_db_connection()
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS minibot_users (
+                    id SERIAL PRIMARY KEY,
+                    user_key TEXT UNIQUE NOT NULL,
+                    email TEXT,
+                    name TEXT,
+                    premium BOOLEAN NOT NULL DEFAULT FALSE,
+                    razorpay_subscription_id TEXT,
+                    razorpay_status TEXT,
+                    premium_until TIMESTAMPTZ,
+                    message_count INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+
+        connection.commit()
+        return True, None
+
+    except Exception as error:
+        if connection:
+            connection.rollback()
+
+        return False, str(error)
+
+    finally:
+        if connection:
+            connection.close()
+
+
+def get_user(user_key):
+    if not DATABASE_URL:
+        return None
+
+    connection = None
+
+    try:
+        connection = get_db_connection()
+
+        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """
+                SELECT *
+                FROM minibot_users
+                WHERE user_key = %s
+                """,
+                (user_key,),
+            )
+
+            return cursor.fetchone()
+
+    except Exception:
+        return None
+
+    finally:
+        if connection:
+            connection.close()
+
+
+def create_or_update_user(user_key, email=None, name=None):
+    if not DATABASE_URL:
+        return None
+
+    connection = None
+
+    try:
+        connection = get_db_connection()
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO minibot_users
+                    (user_key, email, name)
+                VALUES
+                    (%s, %s, %s)
+                ON CONFLICT (user_key)
+                DO UPDATE SET
+                    email = COALESCE(EXCLUDED.email, minibot_users.email),
+                    name = COALESCE(EXCLUDED.name, minibot_users.name),
+                    updated_at = NOW()
+                """,
+                (user_key, email, name),
+            )
+
+        connection.commit()
+
+    except Exception:
+        if connection:
+            connection.rollback()
+
+    finally:
+        if connection:
+            connection.close()
+
+    return get_user(user_key)
+
+
+def save_subscription(user_key, subscription_id, status="created"):
+    if not DATABASE_URL:
+        return False
+
+    connection = None
+
+    try:
+        connection = get_db_connection()
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE minibot_users
+                SET
+                    razorpay_subscription_id = %s,
+                    razorpay_status = %s,
+                    updated_at = NOW()
+                WHERE user_key = %s
+                """,
+                (subscription_id, status, user_key),
+            )
+
+        connection.commit()
+        return True
+
+    except Exception:
+        if connection:
+            connection.rollback()
+
+        return False
+
+    finally:
+        if connection:
+            connection.close()
+
+
+# ============================================================
+# DATABASE STARTUP
+# ============================================================
+
+database_ok, database_error = init_database()
+
+if not database_ok:
+    st.warning(
+        "MiniBot database is not connected yet. "
+        "AI features can still run, but Premium status cannot "
+        "be stored permanently."
+    )
+
+
+# ============================================================
+# USER IDENTITY
+# ============================================================
+# Google login can be connected later. For now we use a session
+# identity so the database layer can be tested safely.
+# This does NOT pretend that an anonymous session is a permanent
+# customer identity.
+
+if "minibot_session_id" not in st.session_state:
+    st.session_state.minibot_session_id = str(uuid.uuid4())
+
+USER_KEY = st.session_state.minibot_session_id
+
+USER_EMAIL = None
+USER_NAME = None
+
+try:
+    if hasattr(st, "user") and st.user.is_logged_in:
+        USER_EMAIL = getattr(st.user, "email", None)
+        USER_NAME = getattr(st.user, "name", None)
+
+        if USER_EMAIL:
+            USER_KEY = f"google:{USER_EMAIL.lower()}"
+except Exception:
+    pass
+
+
+if database_ok:
+    db_user = create_or_update_user(
+        USER_KEY,
+        USER_EMAIL,
+        USER_NAME,
+    )
+else:
+    db_user = None
 
 
 # ============================================================
@@ -72,28 +281,17 @@ RAZORPAY_KEY_SECRET = os.environ.get(
 # ============================================================
 
 if not GEMINI_API_KEY:
-
     st.error("MiniBot is not connected to its AI service yet.")
-
-    st.info(
-        "Add GEMINI_API_KEY to the Render environment variables."
-    )
-
+    st.info("Add GEMINI_API_KEY to the Render environment variables.")
     st.stop()
 
-
 try:
-
     client = genai.Client(
         api_key=GEMINI_API_KEY
     )
-
-except Exception as e:
-
+except Exception as error:
     st.error("MiniBot could not connect to the AI service.")
-
-    st.code(str(e))
-
+    st.code(str(error))
     st.stop()
 
 
@@ -104,17 +302,21 @@ except Exception as e:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-
 if "message_count" not in st.session_state:
     st.session_state.message_count = 0
 
-
-if "premium" not in st.session_state:
-    st.session_state.premium = False
-
-
 if "uploaded_file_name" not in st.session_state:
     st.session_state.uploaded_file_name = None
+
+
+# Premium is read from the database.
+# Never activate Premium merely because a payment button was clicked.
+
+premium_from_database = bool(
+    db_user and db_user.get("premium") is True
+)
+
+st.session_state.premium = premium_from_database
 
 
 # ============================================================
@@ -124,9 +326,9 @@ if "uploaded_file_name" not in st.session_state:
 SYSTEM_INSTRUCTION = """
 You are MiniBot, a friendly and highly useful Student AI Assistant.
 
-Your purpose is to help students learn, understand concepts,
-study from documents, practice questions, prepare for exams,
-and organize their study.
+Your purpose is to help students learn, understand concepts, study
+from documents, practice questions, prepare for exams, and organize
+their study.
 
 PERSONALITY:
 - Friendly
@@ -241,15 +443,9 @@ with st.sidebar:
     st.write("✅ Study planning")
 
     if st.session_state.premium:
-
         st.success("💎 Premium Active")
-
-        st.caption(
-            "Premium mode is active for this session."
-        )
-
+        st.caption("Premium status is stored in the database.")
     else:
-
         st.caption(
             f"💬 {FREE_MESSAGE_LIMIT} free messages per session"
         )
@@ -273,17 +469,20 @@ with st.sidebar:
 
         if st.button(
             "💎 Get Premium",
-            use_container_width=True
+            use_container_width=True,
         ):
 
-            if (
+            if not DATABASE_URL:
+                st.error(
+                    "Database is not connected. "
+                    "Premium cannot be activated safely yet."
+                )
+
+            elif (
                 not RAZORPAY_KEY_ID
                 or not RAZORPAY_KEY_SECRET
             ):
-
-                st.warning(
-                    "Razorpay is not connected yet."
-                )
+                st.warning("Razorpay is not connected yet.")
 
                 st.info(
                     "Add RAZORPAY_KEY_ID and "
@@ -325,6 +524,17 @@ with st.sidebar:
                                 "short_url"
                             )
 
+                            subscription_id = data.get(
+                                "id"
+                            )
+
+                            if subscription_id:
+                                save_subscription(
+                                    USER_KEY,
+                                    subscription_id,
+                                    "created",
+                                )
+
                             if subscription_url:
 
                                 st.success(
@@ -338,8 +548,9 @@ with st.sidebar:
                                 )
 
                                 st.caption(
-                                    "Complete the Razorpay payment "
-                                    "to subscribe."
+                                    "Complete the Razorpay payment. "
+                                    "Premium will only be activated "
+                                    "after payment verification."
                                 )
 
                             else:
@@ -349,9 +560,7 @@ with st.sidebar:
                                     "a payment link."
                                 )
 
-                                st.code(
-                                    response.text
-                                )
+                                st.code(response.text)
 
                         else:
 
@@ -360,19 +569,15 @@ with st.sidebar:
                                 "the subscription."
                             )
 
-                            st.code(
-                                response.text
-                            )
+                            st.code(response.text)
 
-                    except Exception as e:
+                    except Exception as error:
 
                         st.error(
                             "Razorpay connection failed."
                         )
 
-                        st.code(
-                            str(e)
-                        )
+                        st.code(str(error))
 
     else:
 
@@ -388,9 +593,7 @@ with st.sidebar:
 
     if st.session_state.premium:
 
-        st.write(
-            "💬 Messages: Unlimited"
-        )
+        st.write("💬 Messages: Unlimited")
 
     else:
 
@@ -408,13 +611,11 @@ with st.sidebar:
 
     if st.button(
         "🗑️ Clear Chat",
-        use_container_width=True
+        use_container_width=True,
     ):
 
         st.session_state.messages = []
-
         st.session_state.message_count = 0
-
         st.session_state.uploaded_file_name = None
 
         st.rerun()
@@ -462,13 +663,11 @@ st.write("### ✨ What MiniBot can do")
 col1, col2 = st.columns(2)
 
 with col1:
-
     st.write("🧠 Explain difficult topics")
     st.write("📄 Study from PDFs")
     st.write("📝 Create practice questions")
 
 with col2:
-
     st.write("🎯 Interactive Quiz Mode")
     st.write("📅 Create study plans")
     st.write("🖼️ Understand diagrams")
@@ -569,13 +768,11 @@ if user_message:
 
         st.stop()
 
-
     # --------------------------------------------------------
     # COUNT MESSAGE
     # --------------------------------------------------------
 
     st.session_state.message_count += 1
-
 
     # --------------------------------------------------------
     # SAVE USER MESSAGE
@@ -588,13 +785,11 @@ if user_message:
         }
     )
 
-
     with st.chat_message("user"):
 
         st.markdown(
             user_message
         )
-
 
     # --------------------------------------------------------
     # BUILD CONVERSATION
@@ -606,17 +801,13 @@ if user_message:
         SYSTEM_INSTRUCTION
     )
 
-
     conversation_parts.append(
         "\nCURRENT CONVERSATION:\n"
     )
 
-
-    # Keep recent history manageable
     recent_messages = (
         st.session_state.messages[-20:]
     )
-
 
     for message in recent_messages:
 
@@ -632,26 +823,21 @@ if user_message:
                 f"MiniBot: {message['content']}"
             )
 
-
     conversation_parts.append(
         f"\n\nUser's latest question:\n{user_message}"
     )
-
 
     conversation_parts.append(
         "\n\nAnswer the user's latest question."
     )
 
-
     conversation_text = "\n\n".join(
         conversation_parts
     )
 
-
     contents = [
         conversation_text
     ]
-
 
     # --------------------------------------------------------
     # IMAGE
@@ -674,9 +860,7 @@ if user_message:
                 )
 
             except Exception:
-
                 pass
-
 
     # --------------------------------------------------------
     # PDF
@@ -701,18 +885,15 @@ if user_message:
 
                     temp_path = temp_pdf.name
 
-
                 pdf_file = client.files.upload(
                     file=temp_path
                 )
-
 
                 contents.append(
                     pdf_file
                 )
 
-
-            except Exception as e:
+            except Exception as error:
 
                 st.error(
                     "MiniBot could not process "
@@ -720,11 +901,10 @@ if user_message:
                 )
 
                 st.code(
-                    str(e)
+                    str(error)
                 )
 
                 st.stop()
-
 
             finally:
 
@@ -734,15 +914,9 @@ if user_message:
                 ):
 
                     try:
-
-                        os.remove(
-                            temp_path
-                        )
-
+                        os.remove(temp_path)
                     except Exception:
-
                         pass
-
 
     # --------------------------------------------------------
     # GENERATE AI RESPONSE
@@ -769,9 +943,7 @@ if user_message:
                     )
                 )
 
-
                 answer = response.text
-
 
                 if not answer:
 
@@ -780,8 +952,7 @@ if user_message:
                         "this time. Please try again."
                     )
 
-
-            except Exception as e:
+            except Exception as error:
 
                 answer = (
                     "❌ MiniBot encountered an error "
@@ -789,17 +960,20 @@ if user_message:
                 )
 
                 st.error(
-                    str(e)
+                    str(error)
                 )
-
 
         st.markdown(
             answer
         )
 
-
     # --------------------------------------------------------
     # SAVE ASSISTANT RESPONSE
     # --------------------------------------------------------
 
-   
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "content": answer,
+        }
+    )
