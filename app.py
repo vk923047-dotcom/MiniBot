@@ -802,46 +802,4 @@ if user_message:
     # SAVE ASSISTANT RESPONSE
     # --------------------------------------------------------
 
-    st.session_state.messages.append(
-        {
-            "role": "assistant",
-            "content": answer,
-        }
-    )
-```
-
-### Also make sure your `requirements.txt` contains exactly this
-
-```text
-streamlit
-google-genai
-Pillow
-requests
-```
-
-And on Render, your **Start Command** should be:
-
-```text
-streamlit run app.py --server.port $PORT --server.address 0.0.0.0
-```
-
-**Do not use `gunicorn`.**
-
-Your Render environment variables should be:
-
-```text
-GEMINI_API_KEY
-RAZORPAY_KEY_ID
-RAZORPAY_KEY_SECRET
-RAZORPAY_PLAN_ID
-```
-
-For `RAZORPAY_PLAN_ID`, you can use your existing:
-
-```text
-plan_TkFyotYJk1c9fX
-```
-
-One important correction: this version makes the Razorpay subscription/payment flow work, but **it does not falsely pretend that a payment automatically unlocks Premium**. Proper automatic Premium activation requires a payment webhook/user identity system. I would rather tell you that honestly than give you fake “Premium unlocked” code.
-
-**First deploy this exact version. Don't modify anything inside it.**
+   
