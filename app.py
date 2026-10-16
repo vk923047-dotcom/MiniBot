@@ -20,6 +20,18 @@ st.set_page_config(
     layout="centered",
 )
 
+# Google sign-in
+if not st.user.is_logged_in:
+    st.title("Welcome to MiniBot")
+    st.write("Sign in with Google to continue studying.")
+    st.button("Continue with Google", on_click=st.login)
+    st.stop()
+
+# Show the signed-in user's name
+st.sidebar.write(f"Signed in as: {st.user.name}")
+st.sidebar.button("Log out", on_click=st.logout)
+
+
 
 # ============================================================
 # CSS
