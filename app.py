@@ -1,6 +1,8 @@
 import os
 import tempfile
 import uuid
+import time
+import logging
 import requests
 import streamlit as st
 import psycopg2
@@ -19,6 +21,9 @@ st.set_page_config(
     page_icon="🤖",
     layout="centered",
 )
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("minibot")
 
 # Google sign-in: require a signed-in account before showing MiniBot.
 if not st.user.is_logged_in:
@@ -62,6 +67,8 @@ st.markdown(
 # ============================================================
 
 MODEL_NAME = "gemini-3.8-flash"
+# If the primary model is overloaded, try these supported text-generation models.
+FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-3.6-flash"]
 FREE_MESSAGE_LIMIT = 20
 
 RAZORPAY_PLAN_ID = os.environ.get(
@@ -999,38 +1006,66 @@ if user_message:
             "MiniBot is thinking..."
         ):
 
-            try:
+            answer = None
+            last_error = None
+            successful_model = None
+            models_to_try = [MODEL_NAME] + [
+                model for model in FALLBACK_MODELS if model != MODEL_NAME
+            ]
 
-                response = (
-                    client.models.generate_content(
-                        model=MODEL_NAME,
+            # The Google GenAI SDK already retries transient 429/5xx errors.
+            # If the primary model remains unavailable, try supported fallbacks.
+            for model_index, model_name in enumerate(models_to_try):
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
                         contents=contents,
                         config=types.GenerateContentConfig(
-                            temperature=0.7,
                             max_output_tokens=4096,
                         ),
                     )
-                )
 
-                answer = response.text
+                    answer = response.text
+                    if answer:
+                        successful_model = model_name
+                        break
 
-                if not answer:
-
-                    answer = (
-                        "I couldn't generate a response "
-                        "this time. Please try again."
+                    last_error = RuntimeError(
+                        f"Model {model_name} returned an empty response."
                     )
 
-            except Exception as error:
+                except Exception as error:
+                    last_error = error
+                    logger.warning(
+                        "Gemini model %s failed (%s of %s): %s",
+                        model_name,
+                        model_index + 1,
+                        len(models_to_try),
+                        error,
+                    )
 
+                # Brief pause before switching models; don't hammer the API.
+                if model_index < len(models_to_try) - 1:
+                    time.sleep(1.5)
+
+            if answer:
+                if successful_model != MODEL_NAME:
+                    st.info(
+                        "The main AI model is busy, so MiniBot used a "
+                        "backup model to answer your question."
+                    )
+            else:
+                logger.error(
+                    "All Gemini models failed. Last error: %s",
+                    last_error,
+                )
                 answer = (
-                    "❌ MiniBot encountered an error "
-                    "while generating the answer."
+                    "⚠️ MiniBot is temporarily experiencing high demand. "
+                    "I tried the main model and backup models, but none "
+                    "was available. Please wait a minute and send your "
+                    "question again."
                 )
-
-                st.error(
-                    str(error)
-                )
+                st.warning(answer)
 
         st.markdown(
             answer
@@ -1041,7 +1076,7 @@ if user_message:
     # --------------------------------------------------------
 
     st.session_state.messages.append(
-        {
+        {imp
             "role": "assistant",
             "content": answer,
         }
