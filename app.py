@@ -1075,9 +1075,4 @@ if user_message:
     # SAVE ASSISTANT RESPONSE
     # --------------------------------------------------------
 
-    st.session_state.messages.append(
-        {imp
-            "role": "assistant",
-            "content": answer,
-        }
-    )
+    st.session_state.messages.append({"role": "assistant", "content": answer})
